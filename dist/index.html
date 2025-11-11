@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kasa OTA Performance Monitor - Multi-Week Analysis</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+        
+        // Icon Components
+        const AlertTriangle = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+        );
+        
+        const XCircle = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+        );
+        
+        const AlertCircle = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+        );
+        
+        const CheckCircle = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+        );
+        
+        const ChevronDown = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        );
+        
+        const ChevronUp = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="18 15 12 9 6 15"/>
+            </svg>
+        );
+        
+        const DollarSign = ({ className = "w-8 h-8" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+        );
+        
+        const TrendingDown = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+                <polyline points="17 18 23 18 23 12"/>
+            </svg>
+        );
+        
+        const TrendingUp = ({ className = "w-5 h-5" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                <polyline points="17 6 23 6 23 12"/>
+            </svg>
+        );
+
+        const Zap = ({ className = "w-4 h-4" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+        );
+
+        // Multi-week data
+        const weeklyData = {
+            "7.21.25 to 7.28.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,90484,2121,15,Phoenix Downtown Loft
+1163875111287381809,88566861,66111,1264,19,Scottsdale Modern Suite
+1110238561630791242,88566861,99944,1796,36,Tempe University District
+1422538830207334440,88566861,68777,904,30,Phoenix Central Park
+752124417745502491,88566861,52911,241,0,Mesa Eastside Villa
+1240007472678608756,88566861,107839,1090,17,Phoenix Airport Hub
+1181971043957216151,88566861,66135,1114,22,Gilbert Family Home
+53043028,88566861,29614,609,12,Downtown Phoenix Tower
+1287865979724521141,88566861,572,0,0,Chandler Quiet Retreat
+1452315568921110412,88566861,6598,41,0,Glendale Stadium View
+48933584,88566861,43848,865,13,Phoenix Arts District
+1330557788820774142,88566861,37407,931,23,Scottsdale Golf Resort
+595586594179049076,88566861,10526,192,5,Tempe Mill Avenue
+1092749013017524888,88566861,26194,593,19,Phoenix Mountain View
+659462323326387265,88566861,42642,928,13,Chandler Tech Corridor`,
+
+            "7.28.25 to 8.4.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,87219,1861,17,Phoenix Downtown Loft
+1163875111287381809,88566861,73760,1435,29,Scottsdale Modern Suite
+1110238561630791242,88566861,105268,1977,35,Tempe University District
+1422538830207334440,88566861,47167,816,32,Phoenix Central Park
+752124417745502491,88566861,60955,381,3,Mesa Eastside Villa
+1240007472678608756,88566861,62883,730,9,Phoenix Airport Hub
+1181971043957216151,88566861,62413,1371,34,Gilbert Family Home
+53043028,88566861,26298,450,12,Downtown Phoenix Tower
+1287865979724521141,88566861,604,1,0,Chandler Quiet Retreat
+1452315568921110412,88566861,7658,73,1,Glendale Stadium View
+48933584,88566861,33525,615,10,Phoenix Arts District
+1330557788820774142,88566861,45170,884,12,Scottsdale Golf Resort
+595586594179049076,88566861,6900,98,1,Tempe Mill Avenue
+1092749013017524888,88566861,55852,1714,52,Phoenix Mountain View
+659462323326387265,88566861,38395,777,14,Chandler Tech Corridor`,
+
+            "8.5.25 to 8.15.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,121922,2728,27,Phoenix Downtown Loft
+1163875111287381809,88566861,126169,2847,83,Scottsdale Modern Suite
+1110238561630791242,88566861,128811,2657,47,Tempe University District
+1422538830207334440,88566861,44280,674,18,Phoenix Central Park
+752124417745502491,88566861,83970,478,4,Mesa Eastside Villa
+1240007472678608756,88566861,40459,428,2,Phoenix Airport Hub
+1181971043957216151,88566861,88838,1532,29,Gilbert Family Home
+53043028,88566861,36156,694,22,Downtown Phoenix Tower
+1287865979724521141,88566861,757,5,0,Chandler Quiet Retreat
+1452315568921110412,88566861,11643,127,1,Glendale Stadium View
+48933584,88566861,57021,1139,28,Phoenix Arts District
+1330557788820774142,88566861,43601,921,18,Scottsdale Golf Resort
+595586594179049076,88566861,9921,133,2,Tempe Mill Avenue
+1092749013017524888,88566861,87636,2676,84,Phoenix Mountain View
+659462323326387265,88566861,35924,858,15,Chandler Tech Corridor`,
+
+            "8.16.25 to 8.22.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,45017,895,8,Phoenix Downtown Loft
+1163875111287381809,88566861,68393,1719,44,Scottsdale Modern Suite
+1110238561630791242,88566861,62574,1342,27,Tempe University District
+1422538830207334440,88566861,67324,1495,79,Phoenix Central Park
+752124417745502491,88566861,81130,742,11,Mesa Eastside Villa
+1240007472678608756,88566861,43629,520,15,Phoenix Airport Hub
+1181971043957216151,88566861,140221,3632,138,Gilbert Family Home
+53043028,88566861,20570,373,10,Downtown Phoenix Tower
+1287865979724521141,88566861,571,5,0,Chandler Quiet Retreat
+1452315568921110412,88566861,7766,124,6,Glendale Stadium View
+48933584,88566861,33618,627,11,Phoenix Arts District
+1330557788820774142,88566861,20354,391,11,Scottsdale Golf Resort
+595586594179049076,88566861,5716,133,0,Tempe Mill Avenue
+1092749013017524888,88566861,66119,2358,87,Phoenix Mountain View
+659462323326387265,88566861,25993,546,11,Chandler Tech Corridor`,
+
+            "8.23.25 to 8.29.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,41184,883,11,Phoenix Downtown Loft
+1163875111287381809,88566861,59963,1598,36,Scottsdale Modern Suite
+1110238561630791242,88566861,62732,1215,28,Tempe University District
+1422538830207334440,88566861,61006,1501,87,Phoenix Central Park
+752124417745502491,88566861,147695,1358,16,Mesa Eastside Villa
+1240007472678608756,88566861,76591,938,15,Phoenix Airport Hub
+1181971043957216151,88566861,118295,2500,77,Gilbert Family Home
+53043028,88566861,30335,710,21,Downtown Phoenix Tower
+1287865979724521141,88566861,878,4,0,Chandler Quiet Retreat
+1452315568921110412,88566861,7150,136,3,Glendale Stadium View
+48933584,88566861,23156,453,10,Phoenix Arts District
+1330557788820774142,88566861,21028,357,5,Scottsdale Golf Resort
+595586594179049076,88566861,3961,62,3,Tempe Mill Avenue
+1092749013017524888,88566861,41745,1272,41,Phoenix Mountain View
+659462323326387265,88566861,37392,590,4,Chandler Tech Corridor`
+        };
+
+        const parseCSV = (csvText) => {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',');
+            
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                const obj = {};
+                headers.forEach((header, i) => {
+                    const value = values[i];
+                    if (header === 'id_listing' || header === 'name') {
+                        obj[header] = value;
+                    } else {
+                        obj[header] = parseInt(value) || 0;
+                    }
+                });
+                return obj;
+            });
+        };
+
+        const calculateMetrics = (listing) => {
+            const ctr = listing.appearance_in_search > 0 ? (listing.total_listing_views / listing.appearance_in_search) * 100 : 0;
+            const conversionRate = listing.total_listing_views > 0 ? (listing.bookings / listing.total_listing_views) * 100 : 0;
+            
+            let expectedConversion = 4.5;
+            if (listing.appearance_in_search > 50000) expectedConversion = 4.8;
+            else if (listing.appearance_in_search > 20000) expectedConversion = 4.2;
+            else if (listing.appearance_in_search < 5000) expectedConversion = 3.5;
+            
+            const conversionGap = conversionRate - expectedConversion;
+            const estimatedLostBookings = listing.appearance_in_search > 0 
+                ? Math.max(0, (listing.total_listing_views * (expectedConversion / 100)) - listing.bookings)
+                : 0;
+            const estimatedWeeklyLoss = estimatedLostBookings * 250;
+            
+            let tier = 'healthy';
+            let severity = 0;
+            
+            if (listing.total_listing_views === 0 && listing.appearance_in_search > 500) {
+                tier = 'critical';
+                severity = 100;
+            } else if (listing.bookings === 0 && listing.total_listing_views > 50) {
+                tier = 'critical';
+                severity = 95;
+            } else if (conversionRate < expectedConversion * 0.4 && listing.total_listing_views > 100) {
+                tier = 'critical';
+                severity = 90;
+            } else if (conversionGap < -2 && listing.total_listing_views > 50) {
+                tier = 'high';
+                severity = 70;
+            } else if (conversionGap < -1) {
+                tier = 'watch';
+                severity = 40;
+            }
+            
+            return {
+                ctr,
+                conversionRate,
+                expectedConversion,
+                conversionGap,
+                estimatedLostBookings,
+                estimatedWeeklyLoss,
+                tier,
+                severity
+            };
+        };
+
+        const Alert = ({ listing, metrics, trend, onAnalyze, analyzing }) => {
+            const [expanded, setExpanded] = useState(false);
+            
+            const tierConfig = {
+                critical: { 
+                    color: 'bg-red-50 border-red-200', 
+                    badge: 'bg-red-100 text-red-800',
+                    icon: <XCircle className="text-red-600" />,
+                    label: 'CRITICAL'
+                },
+                high: { 
+                    color: 'bg-orange-50 border-orange-200', 
+                    badge: 'bg-orange-100 text-orange-800',
+                    icon: <AlertTriangle className="text-orange-600" />,
+                    label: 'HIGH PRIORITY'
+                },
+                watch: { 
+                    color: 'bg-yellow-50 border-yellow-200', 
+                    badge: 'bg-yellow-100 text-yellow-800',
+                    icon: <AlertCircle className="text-yellow-600" />,
+                    label: 'WATCH LIST'
+                },
+                healthy: { 
+                    color: 'bg-green-50 border-green-200', 
+                    badge: 'bg-green-100 text-green-800',
+                    icon: <CheckCircle className="text-green-600" />,
+                    label: 'HEALTHY'
+                }
+            };
+            
+            const config = tierConfig[metrics.tier];
+            
+            return (
+                <div className={`border rounded-lg p-4 mb-3 ${config.color}`}>
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3 flex-1">
+                            {config.icon}
+                            <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-1">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${config.badge}`}>
+                                        {config.label}
+                                    </span>
+                                    <span className="text-xs text-gray-500">Listing #{listing.id_listing.slice(-8)}</span>
+                                    {trend && (
+                                        <span className={`flex items-center text-xs ${trend.direction === 'down' ? 'text-red-600' : trend.direction === 'up' ? 'text-green-600' : 'text-gray-600'}`}>
+                                            {trend.direction === 'down' && <TrendingDown className="w-4 h-4 mr-1" />}
+                                            {trend.direction === 'up' && <TrendingUp className="w-4 h-4 mr-1" />}
+                                            {trend.change}
+                                        </span>
+                                    )}
+                                </div>
+                                <h3 className="font-semibold text-gray-900 mb-2">{listing.name}</h3>
+                                
+                                <div className="grid grid-cols-4 gap-4 text-sm mb-2">
+                                    <div>
+                                        <div className="text-gray-500 text-xs">Search Appear.</div>
+                                        <div className="font-semibold">{listing.appearance_in_search.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500 text-xs">Views</div>
+                                        <div className="font-semibold">{listing.total_listing_views.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500 text-xs">Bookings</div>
+                                        <div className="font-semibold">{listing.bookings}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500 text-xs">Conversion</div>
+                                        <div className={`font-semibold ${metrics.conversionGap < -1 ? 'text-red-600' : 'text-gray-900'}`}>
+                                            {metrics.conversionRate.toFixed(1)}%
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {metrics.tier !== 'healthy' && (
+                                    <div className="bg-white bg-opacity-60 rounded p-2 text-sm space-y-1 mb-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-700">Expected Conversion:</span>
+                                            <span className="font-semibold">{metrics.expectedConversion.toFixed(1)}%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-700">Performance Gap:</span>
+                                            <span className={`font-semibold ${metrics.conversionGap < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                {metrics.conversionGap > 0 ? '+' : ''}{metrics.conversionGap.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-700">Est. Weekly Loss:</span>
+                                            <span className="font-semibold text-red-600">
+                                                ${metrics.estimatedWeeklyLoss.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {expanded && (
+                                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                                        <div className="text-sm">
+                                            <div className="font-semibold text-gray-700 mb-1">Likely Issues:</div>
+                                            <ul className="list-disc list-inside space-y-1 text-gray-600">
+                                                {metrics.conversionRate === 0 && listing.total_listing_views > 0 && (
+                                                    <li>Calendar availability restrictions or stale sync</li>
+                                                )}
+                                                {listing.total_listing_views === 0 && listing.appearance_in_search > 500 && (
+                                                    <li>Missing or low-quality photos, poor title/description</li>
+                                                )}
+                                                {metrics.conversionRate < 2 && listing.total_listing_views > 100 && (
+                                                    <>
+                                                        <li>Pricing significantly above market rate</li>
+                                                        <li>Restrictive length-of-stay requirements</li>
+                                                        <li>Missing required amenities in listing</li>
+                                                    </>
+                                                )}
+                                            </ul>
+                                        </div>
+                                        <div className="text-sm">
+                                            <div className="font-semibold text-gray-700 mb-1">Recommended Actions:</div>
+                                            <ul className="list-disc list-inside space-y-1 text-gray-600">
+                                                <li>Review Airbnb calendar sync status</li>
+                                                <li>Compare pricing to similar listings in area</li>
+                                                <li>Check for missing fees or policies</li>
+                                                <li>Verify minimum stay requirements</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end space-y-2 ml-4">
+                            <button
+                                onClick={() => setExpanded(!expanded)}
+                                className="text-gray-600 hover:text-gray-900 p-1 transition-colors"
+                            >
+                                {expanded ? <ChevronUp /> : <ChevronDown />}
+                            </button>
+                            <button
+                                onClick={() => onAnalyze(listing)}
+                                disabled={analyzing === listing.id_listing}
+                                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-1"
+                            >
+                                <Zap />
+                                <span>{analyzing === listing.id_listing ? 'Analyzing...' : 'AI Diagnose'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        function KasaDashboard() {
+            const dateRanges = Object.keys(weeklyData);
+            const [selectedWeek, setSelectedWeek] = useState(dateRanges[dateRanges.length - 1]);
+            const [filterTier, setFilterTier] = useState('all');
+            const [analyzing, setAnalyzing] = useState(null);
+            const [aiInsights, setAiInsights] = useState({});
+            
+            const currentWeekData = useMemo(() => {
+                return parseCSV(weeklyData[selectedWeek]);
+            }, [selectedWeek]);
+            
+            const previousWeekData = useMemo(() => {
+                const currentIndex = dateRanges.indexOf(selectedWeek);
+                if (currentIndex > 0) {
+                    return parseCSV(weeklyData[dateRanges[currentIndex - 1]]);
+                }
+                return null;
+            }, [selectedWeek]);
+            
+            const enrichedListings = useMemo(() => {
+                return currentWeekData.map(listing => {
+                    const metrics = calculateMetrics(listing);
+                    let trend = null;
+                    
+                    if (previousWeekData) {
+                        const prevListing = previousWeekData.find(l => l.id_listing === listing.id_listing);
+                        if (prevListing) {
+                            const prevMetrics = calculateMetrics(prevListing);
+                            const convChange = metrics.conversionRate - prevMetrics.conversionRate;
+                            trend = {
+                                direction: convChange < -0.5 ? 'down' : convChange > 0.5 ? 'up' : 'flat',
+                                change: `${convChange > 0 ? '+' : ''}${convChange.toFixed(1)}%`
+                            };
+                        }
+                    }
+                    
+                    return {
+                        ...listing,
+                        metrics,
+                        trend
+                    };
+                }).sort((a, b) => b.metrics.severity - a.metrics.severity);
+            }, [currentWeekData, previousWeekData]);
+            
+            const filteredListings = useMemo(() => {
+                if (filterTier === 'all') return enrichedListings;
+                return enrichedListings.filter(l => l.metrics.tier === filterTier);
+            }, [enrichedListings, filterTier]);
+            
+            const stats = useMemo(() => {
+                const critical = enrichedListings.filter(l => l.metrics.tier === 'critical').length;
+                const high = enrichedListings.filter(l => l.metrics.tier === 'high').length;
+                const watch = enrichedListings.filter(l => l.metrics.tier === 'watch').length;
+                const totalLoss = enrichedListings.reduce((sum, l) => sum + l.metrics.estimatedWeeklyLoss, 0);
+                
+                return { critical, high, watch, totalLoss };
+            }, [enrichedListings]);
+            
+            const handleAIAnalysis = async (listing) => {
+                setAnalyzing(listing.id_listing);
+                
+                try {
+                    // THIS IS THE KEY CHANGE - Calls YOUR backend, not Anthropic directly
+                    const response = await fetch("/api/analyze", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            listing: {
+                                name: listing.name,
+                                appearances: listing.appearance_in_search,
+                                views: listing.total_listing_views,
+                                bookings: listing.bookings,
+                                ctr: listing.metrics.ctr,
+                                conversionRate: listing.metrics.conversionRate,
+                                expectedConversion: listing.metrics.expectedConversion
+                            }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'API request failed');
+                    }
+                    
+                    const data = await response.json();
+                    const analysis = data.content[0].text;
+                    
+                    setAiInsights(prev => ({
+                        ...prev,
+                        [listing.id_listing]: analysis
+                    }));
+                } catch (error) {
+                    console.error("AI analysis error:", error);
+                    setAiInsights(prev => ({
+                        ...prev,
+                        [listing.id_listing]: `Analysis failed: ${error.message}`
+                    }));
+                } finally {
+                    setAnalyzing(null);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg">
+                        <div className="max-w-7xl mx-auto">
+                            <h1 className="text-3xl font-bold mb-2">Kasa OTA Performance Monitor</h1>
+                            <p className="text-blue-100">Multi-Week Analysis • AI-Powered Alert System</p>
+                        </div>
+                    </div>
+                    
+                    <div className="max-w-7xl mx-auto p-6">
+                        <div className="bg-white rounded-lg shadow p-4 mb-6">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Select Date Range:</label>
+                            <select 
+                                value={selectedWeek}
+                                onChange={(e) => setSelectedWeek(e.target.value)}
+                                className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                {dateRanges.map(week => (
+                                    <option key={week} value={week}>{week}</option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm text-gray-500 mb-1">Critical Alerts</div>
+                                        <div className="text-2xl font-bold text-red-600">{stats.critical}</div>
+                                    </div>
+                                    <XCircle className="w-8 h-8 text-red-600 opacity-20" />
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm text-gray-500 mb-1">High Priority</div>
+                                        <div className="text-2xl font-bold text-orange-600">{stats.high}</div>
+                                    </div>
+                                    <AlertTriangle className="w-8 h-8 text-orange-600 opacity-20" />
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm text-gray-500 mb-1">Watch List</div>
+                                        <div className="text-2xl font-bold text-yellow-600">{stats.watch}</div>
+                                    </div>
+                                    <AlertCircle className="w-8 h-8 text-yellow-600 opacity-20" />
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm text-gray-500 mb-1">Est. Weekly Loss</div>
+                                        <div className="text-2xl font-bold text-gray-900">${(stats.totalLoss / 1000).toFixed(1)}K</div>
+                                    </div>
+                                    <DollarSign className="text-gray-400 opacity-20" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow mb-6 p-4">
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                                    <span className="font-semibold text-gray-700">Filter by Tier:</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['all', 'critical', 'high', 'watch', 'healthy'].map(tier => (
+                                            <button
+                                                key={tier}
+                                                onClick={() => setFilterTier(tier)}
+                                                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                                                    filterTier === tier 
+                                                        ? 'bg-blue-600 text-white' 
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                                                {tier !== 'all' && ` (${enrichedListings.filter(l => l.metrics.tier === tier).length})`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                    Showing {filteredListings.length} of {enrichedListings.length} listings
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            {filteredListings.map(listing => (
+                                <div key={listing.id_listing}>
+                                    <Alert 
+                                        listing={listing} 
+                                        metrics={listing.metrics}
+                                        trend={listing.trend}
+                                        onAnalyze={handleAIAnalysis}
+                                        analyzing={analyzing}
+                                    />
+                                    {aiInsights[listing.id_listing] && (
+                                        <div className="ml-8 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <div className="flex items-start space-x-2">
+                                                <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                <div>
+                                                    <div className="font-semibold text-blue-900 mb-2">⚡ AI Analysis</div>
+                                                    <div className="text-sm text-gray-700 whitespace-pre-line">
+                                                        {aiInsights[listing.id_listing]}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {filteredListings.length === 0 && (
+                            <div className="text-center py-12 text-gray-500">
+                                <div className="text-lg font-medium">No listings in this tier</div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<KasaDashboard />);
+    </script>
+</body>
+</html>
