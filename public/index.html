@@ -83,19 +83,32 @@
         .button:disabled { background: #9ca3af; cursor: not-allowed; }
         .result-box {
             margin-top: 1rem;
-            padding: 1rem;
             background: #eff6ff;
             border: 1px solid #bfdbfe;
             border-radius: 6px;
+            overflow: hidden;
         }
-        .result-title { font-weight: 600; color: #1e40af; margin-bottom: 0.5rem; }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #dbeafe;
+            cursor: pointer;
+            user-select: none;
+        }
+        .result-header:hover { background: #bfdbfe; }
+        .result-title { font-weight: 600; color: #1e40af; display: flex; align-items: center; gap: 0.5rem; }
+        .result-content { padding: 1rem; }
         .result-text { font-size: 0.875rem; color: #374151; white-space: pre-wrap; line-height: 1.5; }
+        .collapse-icon { transition: transform 0.2s; }
+        .collapse-icon.expanded { transform: rotate(180deg); }
     </style>
 </head>
 <body>
     <div id="root"></div>
     <script>
-        const { useState, useMemo, createElement: h } = React;
+        const { useState, useMemo, useEffect, createElement: h } = React;
 
         // Your real Kasa data
         const weeklyData = {
@@ -252,6 +265,13 @@
             const [filterTier, setFilterTier] = useState('all');
             const [analyzing, setAnalyzing] = useState(null);
             const [results, setResults] = useState({});
+            const [expanded, setExpanded] = useState({});
+
+            // Clear AI results when week changes
+            useEffect(() => {
+                setResults({});
+                setExpanded({});
+            }, [selectedWeek]);
 
             const currentWeekData = useMemo(() => parseCSV(weeklyData[selectedWeek]), [selectedWeek]);
 
@@ -293,7 +313,8 @@
                                 impressions: listing.appearance_in_search,
                                 clicks: listing.total_listing_views,
                                 bookings: listing.bookings,
-                                ...listing.metrics
+                                ctr: listing.metrics.ctr,
+                                conversionRate: listing.metrics.conversionRate
                             }
                         })
                     });
@@ -303,12 +324,18 @@
                     const data = await res.json();
                     const text = data.content?.[0]?.text || "No analysis returned";
                     setResults(prev => ({ ...prev, [listing.id_listing]: text }));
+                    setExpanded(prev => ({ ...prev, [listing.id_listing]: true }));
                     
                 } catch (err) {
                     setResults(prev => ({ ...prev, [listing.id_listing]: `Error: ${err.message}` }));
+                    setExpanded(prev => ({ ...prev, [listing.id_listing]: true }));
                 } finally {
                     setAnalyzing(null);
                 }
+            };
+
+            const toggleExpanded = (id) => {
+                setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
             };
 
             return h('div', { className: 'container' },
@@ -399,8 +426,20 @@
                             )
                         ),
                         results[listing.id_listing] && h('div', { className: 'result-box' },
-                            h('div', { className: 'result-title' }, '⚡ AI Analysis'),
-                            h('div', { className: 'result-text' }, results[listing.id_listing])
+                            h('div', { 
+                                className: 'result-header',
+                                onClick: () => toggleExpanded(listing.id_listing)
+                            },
+                                h('div', { className: 'result-title' }, 
+                                    '⚡ AI Analysis'
+                                ),
+                                h('span', { 
+                                    className: `collapse-icon ${expanded[listing.id_listing] ? 'expanded' : ''}`
+                                }, '▼')
+                            ),
+                            expanded[listing.id_listing] && h('div', { className: 'result-content' },
+                                h('div', { className: 'result-text' }, results[listing.id_listing])
+                            )
                         )
                     )
                 )
