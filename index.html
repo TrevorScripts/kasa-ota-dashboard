@@ -3,96 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kasa OTA Performance Monitor - Multi-Week Analysis</title>
+    <title>Kasa OTA Performance Monitor</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f9fafb;
+            color: #111827;
         }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .header { margin-bottom: 2rem; }
+        .title { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .subtitle { color: #6b7280; font-size: 0.875rem; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; align-items: center; }
+        .select {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-size: 0.875rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-label { font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.5rem; font-weight: bold; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+        }
+        .card.critical { border-left-color: #dc2626; background: #fef2f2; }
+        .card.high { border-left-color: #ea580c; background: #fff7ed; }
+        .card.watch { border-left-color: #eab308; background: #fefce8; }
+        .card.healthy { border-left-color: #16a34a; background: #f0fdf4; }
+        .card-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; }
+        .card-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.25rem; }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge.critical { background: #fee2e2; color: #991b1b; }
+        .badge.high { background: #ffedd5; color: #9a3412; }
+        .badge.watch { background: #fef9c3; color: #854d0e; }
+        .badge.healthy { background: #dcfce7; color: #166534; }
+        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
+        .metric { font-size: 0.875rem; color: #4b5563; }
+        .metric-label { font-weight: 500; color: #6b7280; }
+        .button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .button:hover { background: #1d4ed8; }
+        .button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .result-box {
+            margin-top: 1rem;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #dbeafe;
+            cursor: pointer;
+            user-select: none;
+        }
+        .result-header:hover { background: #bfdbfe; }
+        .result-title { font-weight: 600; color: #1e40af; display: flex; align-items: center; gap: 0.5rem; }
+        .result-content { padding: 1rem; }
+        .result-text { font-size: 0.875rem; color: #374151; white-space: pre-wrap; line-height: 1.5; }
+        .collapse-icon { transition: transform 0.2s; }
+        .collapse-icon.expanded { transform: rotate(180deg); }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    <script>
+        const { useState, useMemo, useEffect, createElement: h } = React;
 
-    <script type="text/babel">
-        const { useState, useMemo } = React;
+        // Your real Kasa data
+        const weeklyData = {
+            "7.21.25 to 7.28.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,90484,2121,15,Phoenix Downtown Loft
+1163875111287381809,88566861,66111,1264,19,Scottsdale Modern Suite
+1110238561630791242,88566861,99944,1796,36,Tempe University District
+1422538830207334440,88566861,68777,904,30,Phoenix Central Park
+752124417745502491,88566861,52911,241,0,Mesa Eastside Villa
+1240007472678608756,88566861,107839,1090,17,Phoenix Airport Hub
+1181971043957216151,88566861,66135,1114,22,Gilbert Family Home
+53043028,88566861,29614,609,12,Downtown Phoenix Tower
+1287865979724521141,88566861,572,0,0,Chandler Quiet Retreat
+1452315568921110412,88566861,6598,41,0,Glendale Stadium View
+48933584,88566861,43848,865,13,Phoenix Arts District
+1330557788820774142,88566861,37407,931,23,Scottsdale Golf Resort
+595586594179049076,88566861,10526,192,5,Tempe Mill Avenue
+1092749013017524888,88566861,26194,593,19,Phoenix Mountain View
+659462323326387265,88566861,42642,928,13,Chandler Tech Corridor`,
 
-        // Paste all your existing icon components here (AlertTriangle, XCircle, etc.)
+            "7.28.25 to 8.4.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,87219,1861,17,Phoenix Downtown Loft
+1163875111287381809,88566861,73760,1435,29,Scottsdale Modern Suite
+1110238561630791242,88566861,105268,1977,35,Tempe University District
+1422538830207334440,88566861,47167,816,32,Phoenix Central Park
+752124417745502491,88566861,60955,381,3,Mesa Eastside Villa
+1240007472678608756,88566861,62883,730,9,Phoenix Airport Hub
+1181971043957216151,88566861,62413,1371,34,Gilbert Family Home
+53043028,88566861,26298,450,12,Downtown Phoenix Tower
+1287865979724521141,88566861,604,1,0,Chandler Quiet Retreat
+1452315568921110412,88566861,7658,73,1,Glendale Stadium View
+48933584,88566861,33525,615,10,Phoenix Arts District
+1330557788820774142,88566861,45170,884,12,Scottsdale Golf Resort
+595586594179049076,88566861,6900,98,1,Tempe Mill Avenue
+1092749013017524888,88566861,55852,1714,52,Phoenix Mountain View
+659462323326387265,88566861,38395,777,14,Chandler Tech Corridor`,
 
-        // Paste weeklyData, parseCSV, calculateMetrics functions here
+            "8.5.25 to 8.15.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,121922,2728,27,Phoenix Downtown Loft
+1163875111287381809,88566861,126169,2847,83,Scottsdale Modern Suite
+1110238561630791242,88566861,128811,2657,47,Tempe University District
+1422538830207334440,88566861,44280,674,18,Phoenix Central Park
+752124417745502491,88566861,83970,478,4,Mesa Eastside Villa
+1240007472678608756,88566861,40459,428,2,Phoenix Airport Hub
+1181971043957216151,88566861,88838,1532,29,Gilbert Family Home
+53043028,88566861,36156,694,22,Downtown Phoenix Tower
+1287865979724521141,88566861,757,5,0,Chandler Quiet Retreat
+1452315568921110412,88566861,11643,127,1,Glendale Stadium View
+48933584,88566861,57021,1139,28,Phoenix Arts District
+1330557788820774142,88566861,43601,921,18,Scottsdale Golf Resort
+595586594179049076,88566861,9921,133,2,Tempe Mill Avenue
+1092749013017524888,88566861,87636,2676,84,Phoenix Mountain View
+659462323326387265,88566861,35924,858,15,Chandler Tech Corridor`,
 
-        // ALERT COMPONENT
-        const Alert = ({ listing, metrics, trend, onAnalyze, analyzing }) => {
-            const [expanded, setExpanded] = useState(false);
+            "8.16.25 to 8.22.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,45017,895,8,Phoenix Downtown Loft
+1163875111287381809,88566861,68393,1719,44,Scottsdale Modern Suite
+1110238561630791242,88566861,62574,1342,27,Tempe University District
+1422538830207334440,88566861,67324,1495,79,Phoenix Central Park
+752124417745502491,88566861,81130,742,11,Mesa Eastside Villa
+1240007472678608756,88566861,43629,520,15,Phoenix Airport Hub
+1181971043957216151,88566861,140221,3632,138,Gilbert Family Home
+53043028,88566861,20570,373,10,Downtown Phoenix Tower
+1287865979724521141,88566861,571,5,0,Chandler Quiet Retreat
+1452315568921110412,88566861,7766,124,6,Glendale Stadium View
+48933584,88566861,33618,627,11,Phoenix Arts District
+1330557788820774142,88566861,20354,391,11,Scottsdale Golf Resort
+595586594179049076,88566861,5716,133,0,Tempe Mill Avenue
+1092749013017524888,88566861,66119,2358,87,Phoenix Mountain View
+659462323326387265,88566861,25993,546,11,Chandler Tech Corridor`,
 
-            const tierConfig = {
-                critical: { color: 'bg-red-50 border-red-200', badge: 'bg-red-100 text-red-800', icon: <XCircle className="text-red-600" />, label: 'CRITICAL' },
-                high: { color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-100 text-orange-800', icon: <AlertTriangle className="text-orange-600" />, label: 'HIGH PRIORITY' },
-                watch: { color: 'bg-yellow-50 border-yellow-200', badge: 'bg-yellow-100 text-yellow-800', icon: <AlertCircle className="text-yellow-600" />, label: 'WATCH LIST' },
-                healthy: { color: 'bg-green-50 border-green-200', badge: 'bg-green-100 text-green-800', icon: <CheckCircle className="text-green-600" />, label: 'HEALTHY' }
-            };
-            
-            const config = tierConfig[metrics.tier];
-
-            return (
-                <div className={`border rounded-lg p-4 mb-3 ${config.color}`}>
-                    {/* Existing Alert content here */}
-                    <div className="flex flex-col items-end space-y-2 ml-4">
-                        <button
-                            onClick={() => setExpanded(!expanded)}
-                            className="text-gray-600 hover:text-gray-900 p-1 transition-colors"
-                        >
-                            {expanded ? <ChevronUp /> : <ChevronDown />}
-                        </button>
-                        <button
-                            onClick={() => onAnalyze(listing)}
-                            disabled={analyzing === listing.id_listing}
-                            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-1"
-                        >
-                            <Zap />
-                            <span>{analyzing === listing.id_listing ? 'Analyzing...' : 'AI Diagnose'}</span>
-                        </button>
-                    </div>
-                </div>
-            );
+            "8.23.25 to 8.29.25": `id_listing,id_host,appearance_in_search,total_listing_views,bookings,name
+1005914845377005142,88566861,41184,883,11,Phoenix Downtown Loft
+1163875111287381809,88566861,59963,1598,36,Scottsdale Modern Suite
+1110238561630791242,88566861,62732,1215,28,Tempe University District
+1422538830207334440,88566861,61006,1501,87,Phoenix Central Park
+752124417745502491,88566861,147695,1358,16,Mesa Eastside Villa
+1240007472678608756,88566861,76591,938,15,Phoenix Airport Hub
+1181971043957216151,88566861,118295,2500,77,Gilbert Family Home
+53043028,88566861,30335,710,21,Downtown Phoenix Tower
+1287865979724521141,88566861,878,4,0,Chandler Quiet Retreat
+1452315568921110412,88566861,7150,136,3,Glendale Stadium View
+48933584,88566861,23156,453,10,Phoenix Arts District
+1330557788820774142,88566861,21028,357,5,Scottsdale Golf Resort
+595586594179049076,88566861,3961,62,3,Tempe Mill Avenue
+1092749013017524888,88566861,41745,1272,41,Phoenix Mountain View
+659462323326387265,88566861,37392,590,4,Chandler Tech Corridor`
         };
 
-        // MAIN DASHBOARD
+        const parseCSV = (csvText) => {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',');
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                const obj = {};
+                headers.forEach((header, i) => {
+                    const value = values[i];
+                    if (header === 'id_listing' || header === 'name') {
+                        obj[header] = value;
+                    } else {
+                        obj[header] = parseInt(value) || 0;
+                    }
+                });
+                return obj;
+            });
+        };
+
+        const calculateMetrics = (listing) => {
+            const ctr = listing.appearance_in_search > 0 
+                ? (listing.total_listing_views / listing.appearance_in_search) * 100 
+                : 0;
+            const conversionRate = listing.total_listing_views > 0 
+                ? (listing.bookings / listing.total_listing_views) * 100 
+                : 0;
+            
+            let expectedConversion = 4.5;
+            if (listing.appearance_in_search > 50000) expectedConversion = 4.8;
+            else if (listing.appearance_in_search > 20000) expectedConversion = 4.2;
+            else if (listing.appearance_in_search < 5000) expectedConversion = 3.5;
+            
+            const conversionGap = conversionRate - expectedConversion;
+            const estimatedLostBookings = listing.appearance_in_search > 0 
+                ? Math.max(0, (listing.total_listing_views * (expectedConversion / 100)) - listing.bookings)
+                : 0;
+            const estimatedWeeklyLoss = estimatedLostBookings * 250;
+            
+            let tier = 'healthy';
+            if (listing.total_listing_views === 0 && listing.appearance_in_search > 500) {
+                tier = 'critical';
+            } else if (listing.bookings === 0 && listing.total_listing_views > 50) {
+                tier = 'critical';
+            } else if (conversionRate < expectedConversion * 0.4 && listing.total_listing_views > 100) {
+                tier = 'critical';
+            } else if (conversionGap < -2 && listing.total_listing_views > 50) {
+                tier = 'high';
+            } else if (conversionGap < -1) {
+                tier = 'watch';
+            }
+            
+            return {
+                ctr,
+                conversionRate,
+                expectedConversion,
+                conversionGap,
+                estimatedLostBookings,
+                estimatedWeeklyLoss,
+                tier
+            };
+        };
+
         function KasaDashboard() {
             const dateRanges = Object.keys(weeklyData);
             const [selectedWeek, setSelectedWeek] = useState(dateRanges[dateRanges.length - 1]);
             const [filterTier, setFilterTier] = useState('all');
             const [analyzing, setAnalyzing] = useState(null);
-            const [aiInsights, setAiInsights] = useState({});
+            const [results, setResults] = useState({});
+            const [expanded, setExpanded] = useState({});
+
+            // Clear AI results when week changes
+            useEffect(() => {
+                setResults({});
+                setExpanded({});
+            }, [selectedWeek]);
 
             const currentWeekData = useMemo(() => parseCSV(weeklyData[selectedWeek]), [selectedWeek]);
-            const previousWeekData = useMemo(() => {
-                const currentIndex = dateRanges.indexOf(selectedWeek);
-                if (currentIndex > 0) return parseCSV(weeklyData[dateRanges[currentIndex - 1]]);
-                return null;
-            }, [selectedWeek]);
 
             const enrichedListings = useMemo(() => {
                 return currentWeekData.map(listing => {
                     const metrics = calculateMetrics(listing);
-                    let trend = null;
-                    if (previousWeekData) {
-                        const prevListing = previousWeekData.find(l => l.id_listing === listing.id_listing);
-                        if (prevListing) {
-                            const prevMetrics = calculateMetrics(prevListing);
-                            const convChange = metrics.conversionRate - prevMetrics.conversionRate;
-                            trend = { direction: convChange < -0.5 ? 'down' : convChange > 0.5 ? 'up' : 'flat', change: `${convChange > 0 ? '+' : ''}${convChange.toFixed(1)}%` };
-                        }
-                    }
-                    return { ...listing, metrics, trend };
-                }).sort((a,b) => b.metrics.severity - a.metrics.severity);
-            }, [currentWeekData, previousWeekData]);
+                    return { ...listing, metrics };
+                }).sort((a, b) => {
+                    const tierOrder = { critical: 0, high: 1, watch: 2, healthy: 3 };
+                    return tierOrder[a.metrics.tier] - tierOrder[b.metrics.tier];
+                });
+            }, [currentWeekData]);
 
-            const filteredListings = useMemo(() => filterTier === 'all' ? enrichedListings : enrichedListings.filter(l => l.metrics.tier === filterTier), [enrichedListings, filterTier]);
+            const filteredListings = useMemo(() => 
+                filterTier === 'all' 
+                    ? enrichedListings 
+                    : enrichedListings.filter(l => l.metrics.tier === filterTier), 
+                [enrichedListings, filterTier]
+            );
 
             const stats = useMemo(() => {
                 const critical = enrichedListings.filter(l => l.metrics.tier === 'critical').length;
@@ -102,50 +302,153 @@
                 return { critical, high, watch, totalLoss };
             }, [enrichedListings]);
 
-            // AI ANALYSIS HANDLER
-            const handleAIAnalysis = async (listing) => {
+            const analyze = async (listing) => {
                 setAnalyzing(listing.id_listing);
                 try {
-                    const response = await fetch("/api/analyze", {
+                    const res = await fetch("/api/analyze", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ listing })
+                        body: JSON.stringify({ 
+                            listing: {
+                                id: listing.id_listing,
+                                name: listing.name,
+                                impressions: listing.appearance_in_search,
+                                clicks: listing.total_listing_views,
+                                bookings: listing.bookings,
+                                ctr: listing.metrics.ctr,
+                                conversionRate: listing.metrics.conversionRate
+                            }
+                        })
                     });
-
-                    if (!response.ok) throw new Error('API request failed');
-                    const data = await response.json();
-                    setAiInsights(prev => ({ ...prev, [listing.id_listing]: data.content[0].text }));
+                    
+                    if (!res.ok) throw new Error(`API error: ${res.status}`);
+                    
+                    const data = await res.json();
+                    const text = data.content?.[0]?.text || "No analysis returned";
+                    setResults(prev => ({ ...prev, [listing.id_listing]: text }));
+                    setExpanded(prev => ({ ...prev, [listing.id_listing]: true }));
+                    
                 } catch (err) {
-                    setAiInsights(prev => ({ ...prev, [listing.id_listing]: `Analysis failed: ${err.message}` }));
+                    setResults(prev => ({ ...prev, [listing.id_listing]: `Error: ${err.message}` }));
+                    setExpanded(prev => ({ ...prev, [listing.id_listing]: true }));
                 } finally {
                     setAnalyzing(null);
                 }
             };
 
-            return (
-                <div className="min-h-screen bg-gray-50">
-                    {/* Existing header, filter, stats, and listing rendering code here */}
-                    {filteredListings.map(listing => (
-                        <div key={listing.id_listing}>
-                            <Alert listing={listing} metrics={listing.metrics} trend={listing.trend} onAnalyze={handleAIAnalysis} analyzing={analyzing} />
-                            {aiInsights[listing.id_listing] && (
-                                <div className="ml-8 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <div className="flex items-start space-x-2">
-                                        <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <div className="font-semibold text-blue-900 mb-2">⚡ AI Analysis</div>
-                                            <div className="text-sm text-gray-700 whitespace-pre-line">{aiInsights[listing.id_listing]}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
+            const toggleExpanded = (id) => {
+                setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+            };
+
+            return h('div', { className: 'container' },
+                h('div', { className: 'header' },
+                    h('h1', { className: 'title' }, '📊 Kasa OTA Performance Monitor'),
+                    h('p', { className: 'subtitle' }, 'Multi-week property performance analysis with AI diagnostics')
+                ),
+                
+                h('div', { className: 'controls' },
+                    h('select', {
+                        className: 'select',
+                        value: selectedWeek,
+                        onChange: (e) => setSelectedWeek(e.target.value)
+                    }, dateRanges.map(range => 
+                        h('option', { key: range, value: range }, `Week: ${range}`)
+                    )),
+                    h('select', {
+                        className: 'select',
+                        value: filterTier,
+                        onChange: (e) => setFilterTier(e.target.value)
+                    }, 
+                        h('option', { value: 'all' }, 'All Properties'),
+                        h('option', { value: 'critical' }, 'Critical Only'),
+                        h('option', { value: 'high' }, 'High Priority'),
+                        h('option', { value: 'watch' }, 'Watch List'),
+                        h('option', { value: 'healthy' }, 'Healthy')
+                    )
+                ),
+
+                h('div', { className: 'stats' },
+                    h('div', { className: 'stat-card' },
+                        h('div', { className: 'stat-label' }, '🚨 Critical Issues'),
+                        h('div', { className: 'stat-value', style: { color: '#dc2626' } }, stats.critical)
+                    ),
+                    h('div', { className: 'stat-card' },
+                        h('div', { className: 'stat-label' }, '⚠️ High Priority'),
+                        h('div', { className: 'stat-value', style: { color: '#ea580c' } }, stats.high)
+                    ),
+                    h('div', { className: 'stat-card' },
+                        h('div', { className: 'stat-label' }, '👀 Watch List'),
+                        h('div', { className: 'stat-value', style: { color: '#eab308' } }, stats.watch)
+                    ),
+                    h('div', { className: 'stat-card' },
+                        h('div', { className: 'stat-label' }, '💰 Est. Weekly Loss'),
+                        h('div', { className: 'stat-value' }, `$${stats.totalLoss.toLocaleString()}`)
+                    )
+                ),
+
+                filteredListings.map(listing =>
+                    h('div', { key: listing.id_listing },
+                        h('div', { className: `card ${listing.metrics.tier}` },
+                            h('div', { className: 'card-header' },
+                                h('div', null,
+                                    h('div', { className: 'card-title' }, listing.name),
+                                    h('span', { className: `badge ${listing.metrics.tier}` }, listing.metrics.tier)
+                                ),
+                                h('button', {
+                                    className: 'button',
+                                    onClick: () => analyze(listing),
+                                    disabled: analyzing === listing.id_listing
+                                }, analyzing === listing.id_listing ? '⏳ Analyzing...' : '⚡ AI Diagnose')
+                            ),
+                            h('div', { className: 'metrics' },
+                                h('div', { className: 'metric' },
+                                    h('span', { className: 'metric-label' }, 'Impressions: '),
+                                    listing.appearance_in_search.toLocaleString()
+                                ),
+                                h('div', { className: 'metric' },
+                                    h('span', { className: 'metric-label' }, 'Views: '),
+                                    listing.total_listing_views.toLocaleString()
+                                ),
+                                h('div', { className: 'metric' },
+                                    h('span', { className: 'metric-label' }, 'Bookings: '),
+                                    listing.bookings
+                                ),
+                                h('div', { className: 'metric' },
+                                    h('span', { className: 'metric-label' }, 'CTR: '),
+                                    `${listing.metrics.ctr.toFixed(2)}%`
+                                ),
+                                h('div', { className: 'metric' },
+                                    h('span', { className: 'metric-label' }, 'Conversion: '),
+                                    `${listing.metrics.conversionRate.toFixed(2)}%`
+                                ),
+                                h('div', { className: 'metric' },
+                                    h('span', { className: 'metric-label' }, 'Est. Loss: '),
+                                    `$${listing.metrics.estimatedWeeklyLoss.toLocaleString()}`
+                                )
+                            )
+                        ),
+                        results[listing.id_listing] && h('div', { className: 'result-box' },
+                            h('div', { 
+                                className: 'result-header',
+                                onClick: () => toggleExpanded(listing.id_listing)
+                            },
+                                h('div', { className: 'result-title' }, 
+                                    '⚡ AI Analysis'
+                                ),
+                                h('span', { 
+                                    className: `collapse-icon ${expanded[listing.id_listing] ? 'expanded' : ''}`
+                                }, '▼')
+                            ),
+                            expanded[listing.id_listing] && h('div', { className: 'result-content' },
+                                h('div', { className: 'result-text' }, results[listing.id_listing])
+                            )
+                        )
+                    )
+                )
             );
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<KasaDashboard />);
+        ReactDOM.render(React.createElement(KasaDashboard), document.getElementById('root'));
     </script>
 </body>
 </html>
